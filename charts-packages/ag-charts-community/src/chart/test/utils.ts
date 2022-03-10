@@ -8,7 +8,11 @@ import { Canvas, createCanvas, PngConfig, registerFont } from 'canvas';
 export const IMAGE_SNAPSHOT_DEFAULTS = { failureThreshold: 0, failureThresholdType: "percent" };
 export const CANVAS_TO_BUFFER_DEFAULTS: PngConfig = { compressionLevel: 0, filters: (Canvas as any).PNG_NO_FILTERS };
 
+process.env.PANGOCAIRO_BACKEND = 'fontconfig';
+process.env.FONTCONFIG_PATH = __dirname;
 registerFont(`${__dirname}/Geneva.ttf`, { family: 'Verdana' });
+registerFont(`${__dirname}/Geneva.ttf`, { family: 'Sans-Serif' });
+registerFont(`${__dirname}/Geneva.ttf`, { family: 'Serif' });
 
 export function repeat<T>(value: T, count: number): T[] {
     const result = new Array(count);
