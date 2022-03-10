@@ -6,7 +6,7 @@ import { HierarchyChart } from '../hierarchyChart';
 import { Canvas, createCanvas, PngConfig } from 'canvas';
 
 export const IMAGE_SNAPSHOT_DEFAULTS = { failureThreshold: 0, failureThresholdType: "percent" };
-export const CANVAS_TO_BUFFER_DEFAULTS: PngConfig = { compressionLevel: 0 };
+export const CANVAS_TO_BUFFER_DEFAULTS: PngConfig = { compressionLevel: 0, filters: (Canvas as any).PNG_NO_FILTERS };
 
 export function repeat<T>(value: T, count: number): T[] {
     const result = new Array(count);
@@ -100,18 +100,20 @@ export function setupMockCanvas(): { nodeCanvas?: Canvas } {
     beforeEach(() => {
         ctx.nodeCanvas = createCanvas(800, 600);
 
-        const context2d = ctx.nodeCanvas.getContext('2d');
-        context2d.patternQuality = 'good';
-        context2d.quality = 'good';
-        context2d.textDrawingMode = 'path';
-        context2d.antialias = 'subpixel';
-
         realCreateElement = document.createElement;
         document.createElement = jest.fn(
             (element, options) => {
                 if (element === 'canvas') {
                     const mockedElement = realCreateElement.call(document, element, options);
-                    mockedElement.getContext = (p) => ctx.nodeCanvas.getContext(p) as any;
+                    mockedElement.getContext = (p) => { 
+                        const context2d = ctx.nodeCanvas.getContext(p, { alpha: false });
+                        context2d.patternQuality = 'good';
+                        context2d.quality = 'good';
+                        context2d.textDrawingMode = 'path';
+                        context2d.antialias = 'subpixel';
+                
+                        return context2d as any;
+                    };
 
                     return mockedElement;
                 }
