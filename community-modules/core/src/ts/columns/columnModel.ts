@@ -134,6 +134,7 @@ export class ColumnModel extends BeanStub {
     // if pivoting, these are the generated columns as a result of the pivot
     private secondaryBalancedTree: IProvidedColumn[] | null;
     private secondaryColumns: Column[] | null;
+    private secondaryColumnsMap: { [id: string]: Column };
     private secondaryHeaderRowCount = 0;
     private secondaryColumnsPresent = false;
 
@@ -1805,6 +1806,13 @@ export class ColumnModel extends BeanStub {
             this.groupAutoColumns || [],
         ]);
     }
+    
+    private getPrimaryAndSecondaryColumns(): Column[] {
+        return ([] as Column[]).concat(...[
+            this.primaryColumns || [],
+            this.secondaryColumns || [],
+        ]);
+    }
 
     private createStateItemFromColumn(column: Column): ColumnState {
         const rowGroupIndex = column.isRowGroupActive() ? this.rowGroupColumns.indexOf(column) : null;
@@ -1957,7 +1965,7 @@ export class ColumnModel extends BeanStub {
         this.autoGroupsNeedBuilding = true;
 
         // at the end below, this list will have all columns we got no state for
-        const columnsWithNoState = this.primaryColumns!.slice();
+        const columnsWithNoState = this.getPrimaryAndSecondaryColumns();
 
         let success = true;
 
@@ -1979,7 +1987,11 @@ export class ColumnModel extends BeanStub {
                     return;
                 }
 
-                const column = this.getPrimaryColumn(colId);
+                // I think its possible a primary and secondary column could have the same id
+                // in which case this is ambigious, but we provide column states merged into the same
+                // array, so there is no good way to disambiguate them when returned to us, unless we
+                // include that information in the state object itself
+                const column = this.getPrimaryColumn(colId) || this.getSecondaryColumn(colId);
 
                 if (!column) {
                     // we don't log the failure, as it's possible the user is applying that has extra
@@ -2073,7 +2085,7 @@ export class ColumnModel extends BeanStub {
     }
 
     private applyOrderAfterApplyState(params: ApplyColumnStateParams): void {
-        if (!this.gridColsArePrimary || !params.applyOrder || !params.state) { return; }
+        if (!params.applyOrder || !params.state) { return; }
 
         let newOrder: Column[] = [];
         const processedColIds: { [id: string]: boolean } = {};
@@ -2139,7 +2151,7 @@ export class ColumnModel extends BeanStub {
         return () => {
             if (this.gridOptionsWrapper.isSuppressColumnStateEvents()) { return; }
 
-            const colsForState = this.getPrimaryAndAutoGroupCols();
+            const colsForState = this.getPrimaryAndSecondaryAndAutoColumns();
 
             // raises generic ColumnEvents where all columns are returned rather than what has changed
             const raiseWhenListsDifferent = (eventType: string, colsBefore: Column[], colsAfter: Column[], idMapper: (column: Column) => string) => {
@@ -2422,8 +2434,8 @@ export class ColumnModel extends BeanStub {
             column.setSortIndex(sortIndex);
         }
 
-        // we do not do aggFunc, rowGroup or pivot for auto cols, as you can't do these with auto col
-        if (autoCol) {
+        // we do not do aggFunc, rowGroup or pivot for auto cols or secondary, as you can't do these with auto col
+        if (autoCol || !column.isPrimary()) { // NOTE_TO_SELF: is it true that you cant do these things with secondary cols?
             return;
         }
 
@@ -2529,6 +2541,11 @@ export class ColumnModel extends BeanStub {
 
     public getGridColumn(key: string | Column): Column | null {
         return this.getColumn(key, this.gridColumns, this.gridColumnsMap);
+    }
+
+    private getSecondaryColumn(key: string | Column): Column | null {
+        if (!this.secondaryColumns) { return null; }
+        return this.getColumn(key, this.secondaryColumns, this.secondaryColumnsMap);
     }
 
     private getColumn(key: string | Column, columnList: Column[], columnMap: { [id: string]: Column }): Column | null {
@@ -3075,11 +3092,15 @@ export class ColumnModel extends BeanStub {
             this.secondaryHeaderRowCount = balancedTreeResult.treeDept + 1;
             this.secondaryColumns = this.getColumnsFromTree(this.secondaryBalancedTree);
 
+            this.secondaryColumnsMap = {};
+            this.secondaryColumns.forEach(col => this.secondaryColumnsMap[col.getId()] = col);
+
             this.secondaryColumnsPresent = true;
         } else {
             this.secondaryBalancedTree = null;
             this.secondaryHeaderRowCount = -1;
             this.secondaryColumns = null;
+            this.secondaryColumnsMap = {};
             this.secondaryColumnsPresent = false;
         }
 
