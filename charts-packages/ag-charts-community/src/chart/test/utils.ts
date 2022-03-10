@@ -3,10 +3,12 @@ import { Chart } from "../chart";
 import { CartesianChart } from '../cartesianChart';
 import { PolarChart } from '../polarChart';
 import { HierarchyChart } from '../hierarchyChart';
-import { Canvas, createCanvas, PngConfig } from 'canvas';
+import { Canvas, createCanvas, PngConfig, registerFont } from 'canvas';
 
 export const IMAGE_SNAPSHOT_DEFAULTS = { failureThreshold: 0, failureThresholdType: "percent" };
 export const CANVAS_TO_BUFFER_DEFAULTS: PngConfig = { compressionLevel: 0, filters: (Canvas as any).PNG_NO_FILTERS };
+
+registerFont(`${__dirname}/Geneva.ttf`, { family: 'Verdana' });
 
 export function repeat<T>(value: T, count: number): T[] {
     const result = new Array(count);
